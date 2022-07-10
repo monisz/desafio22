@@ -1,5 +1,7 @@
 const admin = require('firebase-admin');
 const { firebase } = require('../../config');
+const normalize = require('normalizr');
+const print = require('../../utils/print');
 
 admin.initializeApp({
     credential: admin.credential.cert(firebase.firebaseConfig)
@@ -23,8 +25,9 @@ class Container {
             try {
                 const elementToSave = this.collection.doc(idDoc);
                 await elementToSave.create(element);
-                console.log("agregado exitoso", idDoc);
-                return idDoc;
+                console.log("agregado exitoso", element.email);
+                const allItemsNorm = await colMessages.getAll();
+                return allItemsNorm;
             }
             catch (error) {
                 console.log("el error al guardar fue: ", error);
@@ -34,41 +37,19 @@ class Container {
             console.log("error en Save): ", error);
         }
     }
-    
-
-    //Agregué este método para complementar el put por id
-    async replaceById(idSearch, data) {
-        try {
-            const result = await this.collection.doc(idSearch).update(data);
-            return result;
-        }
-        catch (error) {
-            console.log("error al reemplazar datos: ", error);
-            return null;
-        }
-    }
-
-    async getById(idSearch) {
-        try {
-            const doc = await this.collection.doc(idSearch).get();
-            return doc.data();
-        }
-        catch (error) {
-            console.log("error al buscar por id: ", error);
-        }
-    }
 
     async getAll() {
         try {
             const allItems = await this.collection.get();
             const docs = allItems.docs;
-            const resp = docs.map((doc) => ({
-                code: doc.data().code,
-                title: doc.data().title,
-                price: doc.data().price,
-                thumbnail: doc.data().thumbnail
+            const messages = docs.map((doc) => ({
+                id : doc.id,
+                author: doc.data().author,                
+                date: doc.data().date,
+                text: doc.data().text    
             }));
-            return resp;
+            const messagesNormalized = this.normalizer(messages);
+            return messagesNormalized;
         }
         catch (error) {
             console.log("error en getAll): ", error);
@@ -76,20 +57,26 @@ class Container {
         }
     }
 
-    async deleteById(idSearch) {
-        try {
-            const doc = await this.collection.doc(idSearch).get();
-            if (doc.data()) {
-                const result = await this.collection.doc(idSearch).delete();
-                return result;
-            }
-            else return null;
-        }
-        catch (error) {
-            console.log("error en deleteById): ", error);
-        }
+    async normalizer(messages) {
+        const messagesToNorm = {
+            id: 'mensajes',
+            messages : messages
+        };
+
+        const authorSchema = new normalize.schema.Entity('authors', {}, {idAttribute: 'email'});
+        const messageSchema = new normalize.schema.Entity('message', { 
+            author: authorSchema
+        });
+        const messagesSchema = new normalize.schema.Entity('messages', {
+            messages: [ messageSchema ]
+        });
+        const normalizedMessages = normalize.normalize(messagesToNorm, messagesSchema);
+        print(normalizedMessages);
+        return normalizedMessages;
     }
 }
 
-module.exports = Container;
+const colMessages = new Container('messages');
+
+module.exports = colMessages;
 

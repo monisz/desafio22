@@ -1,36 +1,71 @@
 const socket = io();
 
 //Mensajes
+const dateNow = new Date();
+
 const sendMessage = () => {
     const email = document.getElementById("email").value;
-    const date = String(new Date().toDateString() + ' ' + new Date().toLocaleTimeString());
+    const name = document.getElementById("name").value;
+    const lastName = document.getElementById("lastName").value;
+    const age = document.getElementById("age").value;
+    const alias = document.getElementById("alias").value;
+    const avatar = document.getElementById("avatar").value;
+    const date = dateNow.toLocaleString();
     const text = document.getElementById("text").value;
-    const message = { email, date, text };
+    const message = { 
+        author: {
+            email, name, lastName, age, alias, avatar
+            },
+            date, 
+            text};
+    console.log(message)
     socket.emit("newMessage", message);
     return false;
 };
 
 
 const showMessage = (message) => {
-    const { email, date, text } = message;
+    const { author, date, text } = message;
     return `
         <div style="display:flex">
-            <strong style="color:blue">${email}</strong> 
-            <p style="color:brown">${date}</p>
+        <p>
+            <strong style="color:blue">${author.email}</strong> 
+            <span style="color:brown"> [${date}] </span>
             <i style="color:green"> : ${text}</i>
+            <i><img src="${author.avatar}" height="50rem"></i>
+            </p>
         </div>
     `;
 };
 
-const addMessage = (messages) => {
-    const allMessages = messages.map(message => showMessage(message)).join(" ");
+const addMessage = (messagesNorm) => {
+    const desnormalizedMessages = normalizr.denormalize(messagesNorm.result, messagesSchema, messagesNorm.entities);
+    const allMessages = desnormalizedMessages.messages.map(message => showMessage(message)).join(" ");
     document.getElementById("messages").innerHTML = allMessages;
     document.getElementById("text").value = '';
+    //Compression
+    const longNorm = JSON.stringify(messagesNorm).length;
+    const longDesNorm = JSON.stringify(desnormalizedMessages).length;
+    console.log("norm", longNorm)
+    console.log("desnorm", longDesNorm)
+    const percCompression = Math.round(longNorm*100/longDesNorm);
+    console.log(percCompression)
+    document.getElementById("percent").innerHTML = percCompression;
 };
 
-socket.on('messages', (messages) => {
-    addMessage(messages);
+socket.on('messages', (messagesNorm) => {
+    addMessage(messagesNorm);
 });
+
+//Schema normalizer
+const authorSchema = new normalizr.schema.Entity('authors', {}, {idAttribute: 'email'});
+const messageSchema = new normalizr.schema.Entity('message', { 
+    author: authorSchema
+});
+const messagesSchema = new normalizr.schema.Entity('messages', {
+    messages: [ messageSchema ]
+});
+
 
 
 //Productos
@@ -43,7 +78,6 @@ const sendProduct = () => {
     const stock = document.getElementById("stock").value;
     const timestamp  = Date.now();
     const product = { title, description, code, thumbnail, price, stock, timestamp };
-    console.log("product en index", product)
     socket.emit("newProduct", product);
     return false;
 };

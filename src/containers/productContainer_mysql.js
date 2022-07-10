@@ -1,6 +1,7 @@
 const Knex = require('knex').default;
 const { mysql } = require('../../config');
 const { faker } = require('@faker-js/faker');
+faker.locale = "es";
 
 const knex = Knex({
     client: 'mysql',
@@ -17,7 +18,6 @@ class Container {
         try {
             console.log("el que recibe en save", element)
             const res = await knex(this.table).insert(element);
-            console.log("res en save", res) 
             return res;
         }
         catch (error) {
@@ -30,7 +30,16 @@ class Container {
     //Agregué este método para complementar el put por id
     async replaceById(idSearch, data) {
         try {
-            const result = await knex.from(this.table).where({id : idSearch}).update({data});
+            const doc = await this.getById(idSearch);
+            let newDoc = {...doc[0],...data}
+            const result = await knex.from(this.table).where({id : idSearch}).update({
+                title: newDoc.title,
+                description: newDoc.description,
+                code: newDoc.code,
+                thumbnail: newDoc.thumbnail,
+                price: newDoc.price,
+                stock: newDoc.stock
+            });
             return result;
         }
         catch (error) {
@@ -62,7 +71,7 @@ class Container {
 
     async deleteById(idSearch) {
         try {
-            const result = await knex.from(this.table).where('id', '=', idSearch).del();
+            const result = await knex.from(this.table).where({id: idSearch}).del();
             return result;
         }
         catch (error) {
@@ -77,39 +86,13 @@ class Container {
             mock = {
                 title: faker.commerce.product(),
                 price: faker.commerce.price(),
-                thumbnail: faker.image.business()
+                thumbnail: faker.image.image()
             }
             mocks.push(mock);
         }
-        console.log(mocks)
         return mocks;
     }
-
-
-}
-
-/* const defTable = (async () => { */
-/*     await knex.schema.dropTableIfExists('products'); */
-/*     await knex.schema.createTable('products', table => { */
-/*         table.increments('id').primary().notNullable(), */
-/*         table.string('title',20).notNullable(), */
-/*         table.string('description', 100).notNullable(), */
-/*         table.string('code',10).notNullable(), */
-/*         table.string('thumbnail').notNullable */
-/*         table.float('price').notNullable(), */
-/*         table.integer('stock').notNullable(), */
-/*         table.string('timestamp') */
-/*     }); */
-/*     console.log("tabla productos creada") */
-/* }); */
-
-
-/* class Products extends Container { */
-/*     constructor() { */
-/*         super("products"); */
-/*     } */
-/* }; */
-/* const tableProducts = new Products(); */
+};
 
 const tableProducts = new Container('products');
 
